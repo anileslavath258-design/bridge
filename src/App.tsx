@@ -10,6 +10,7 @@ import { SkillGapPage } from '@/pages/SkillGapPage';
 import { RoadmapPage } from '@/pages/RoadmapPage';
 import { ProgressPage } from '@/pages/ProgressPage';
 import { JobsPage } from '@/pages/JobsPage';
+import { AtsAnalyzerPage } from '@/pages/AtsAnalyzerPage';
 import { Loader2 } from 'lucide-react';
 
 const publicRoutes = ['/', '/login', '/signup'];
@@ -62,6 +63,7 @@ function AppRoutes() {
   if (path === '/roadmap') return <AppLayout><RoadmapPage /></AppLayout>;
   if (path === '/progress') return <AppLayout><ProgressPage /></AppLayout>;
   if (path === '/jobs') return <AppLayout><JobsPage /></AppLayout>;
+  if (path === '/ats-analyzer') return <AppLayout><AtsAnalyzerPage /></AppLayout>;
 
   // Default redirect
   navigate('/dashboard');

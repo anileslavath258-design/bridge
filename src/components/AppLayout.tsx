@@ -10,11 +10,13 @@ import {
   Briefcase,
   LogOut,
   GraduationCap,
+  FileSearch,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/resume', label: 'Resume', icon: FileText },
+  { path: '/ats-analyzer', label: 'ATS Analyzer', icon: FileSearch },
   { path: '/skill-gap', label: 'Skill Gap', icon: Target },
   { path: '/roadmap', label: 'Roadmap', icon: Map },
   { path: '/progress', label: 'Progress', icon: TrendingUp },

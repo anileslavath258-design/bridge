@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   Loader2,
+  FileSearch,
 } from 'lucide-react';
 
 export function DashboardPage() {
@@ -74,6 +75,8 @@ export function DashboardPage() {
   const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
   const latestScore = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1].score : atsScore;
 
+  const resumeComplete = !!(resume && (resume.skills.length > 0 || resume.projects.length > 0));
+
   const quickActions = [
     {
       icon: FileText,
@@ -83,18 +86,18 @@ export function DashboardPage() {
       color: 'bg-blue-50 text-blue-600',
     },
     {
+      icon: FileSearch,
+      title: 'Run ATS Analysis',
+      desc: 'Check your resume against a job role',
+      path: '/ats-analyzer',
+      color: 'bg-indigo-50 text-indigo-600',
+    },
+    {
       icon: Target,
       title: 'View Skill Gap',
       desc: analysis ? `${analysis.missing_skills.length} skills to learn` : 'Run skill analysis',
       path: '/skill-gap',
       color: 'bg-emerald-50 text-emerald-600',
-    },
-    {
-      icon: Map,
-      title: 'Continue Learning Path',
-      desc: roadmap ? `${completedSteps}/${totalSteps} steps completed` : 'Generate your roadmap',
-      path: '/roadmap',
-      color: 'bg-amber-50 text-amber-600',
     },
   ];
 
@@ -174,6 +177,42 @@ export function DashboardPage() {
           </p>
         </div>
 
+        {/* Resume Status */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-500">Resume Status</p>
+            <FileText className="h-5 w-5 text-slate-300" />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            {resumeComplete ? (
+              <>
+                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                <span className="text-lg font-semibold text-slate-900">Resume Built</span>
+              </>
+            ) : (
+              <>
+                <Circle className="h-6 w-6 text-slate-300" />
+                <span className="text-lg font-semibold text-slate-400">Not Built</span>
+              </>
+            )}
+          </div>
+          {resume && (
+            <div className="mt-3 flex gap-3 text-xs text-slate-500">
+              <span>{resume.skills.length} skills</span>
+              <span>•</span>
+              <span>{resume.projects.length} projects</span>
+              <span>•</span>
+              <span>{resume.internships.length} experiences</span>
+            </div>
+          )}
+          <button
+            onClick={() => navigate('/ats-analyzer')}
+            className="mt-3 w-full rounded-lg bg-indigo-50 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+          >
+            Run ATS Analysis →
+          </button>
+        </div>
+
         {/* Progress */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="flex items-center justify-between">
@@ -196,7 +235,7 @@ export function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (

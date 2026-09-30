@@ -222,3 +222,251 @@ export function generateResumeSuggestions(
 
   return suggestions;
 }
+
+// ─── ATS Detailed Analysis ───
+
+export type AtsDetailedResult = {
+  atsScore: number;
+  keywordScore: number;
+  skillsScore: number;
+  formattingScore: number;
+  sectionScore: number;
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  matchedSkills: string[];
+  missingSkills: string[];
+  suggestions: string[];
+};
+
+// Common ATS keywords that are not technical skills but matter for keyword matching
+const COMMON_KEYWORDS = [
+  'agile', 'scrum', 'team', 'leadership', 'collaboration', 'communication',
+  'problem-solving', 'analytical', 'responsive', 'scalable', 'optimization',
+  'testing', 'debugging', 'deployment', 'ci/cd', 'microservices', 'cloud',
+  'full-stack', 'frontend', 'backend', 'database', 'api', 'rest', 'git',
+  'version control', 'agile', 'sprint', 'stakeholder', 'requirement',
+  'documentation', 'code review', 'pair programming', 'tdd',
+];
+
+function extractKeywordsFromJD(jd: string): string[] {
+  const lower = jd.toLowerCase();
+  const found: string[] = [];
+  for (const kw of COMMON_KEYWORDS) {
+    if (lower.includes(kw)) {
+      found.push(kw);
+    }
+  }
+  return found;
+}
+
+function checkFormatting(resumeText: string): { score: number; issues: string[] } {
+  let score = 100;
+  const issues: string[] = [];
+
+  // Check for contact info (email pattern)
+  if (!resumeText.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)) {
+    score -= 15;
+    issues.push('No email address found');
+  }
+
+  // Check for phone number
+  if (!resumeText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/)) {
+    score -= 10;
+    issues.push('No phone number found');
+  }
+
+  // Check for action verbs
+  const actionVerbs = ['developed', 'built', 'designed', 'implemented', 'created', 'led', 'managed', 'optimized', 'delivered', 'achieved'];
+  const lowerText = resumeText.toLowerCase();
+  const verbCount = actionVerbs.filter((v) => lowerText.includes(v)).length;
+  if (verbCount < 3) {
+    score -= 15;
+    issues.push('Use more action verbs (developed, built, designed, implemented, etc.)');
+  }
+
+  // Check for measurable achievements (numbers/percentages)
+  const hasMetrics = resumeText.match(/\d+%|\d+\s+(users|customers|projects|hours|weeks|months|requests|queries|transactions)/i);
+  if (!hasMetrics) {
+    score -= 15;
+    issues.push('Add measurable achievements with numbers (e.g., "Improved performance by 40%")');
+  }
+
+  // Check resume length (too short or too long)
+  const wordCount = resumeText.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 100) {
+    score -= 15;
+    issues.push('Resume content seems too short — aim for 300-500 words');
+  } else if (wordCount > 800) {
+    score -= 10;
+    issues.push('Resume might be too long — keep it concise (under 800 words)');
+  }
+
+  // Check for links (GitHub, LinkedIn, portfolio)
+  if (!resumeText.match(/(github\.com|linkedin\.com|portfolio|bitbucket|gitlab)/i)) {
+    score -= 10;
+    issues.push('Add links to your GitHub, LinkedIn, or portfolio');
+  }
+
+  return { score: Math.max(0, score), issues };
+}
+
+function checkSections(resume: {
+  education: unknown[];
+  skills: string[];
+  projects: unknown[];
+  internships: unknown[];
+  achievements: string[];
+}): { score: number; missing: string[] } {
+  let score = 0;
+  const missing: string[] = [];
+
+  if (resume.education.length > 0) score += 25; else missing.push('Education');
+  if (resume.skills.length > 0) score += 25; else missing.push('Skills');
+  if (resume.projects.length > 0) score += 25; else missing.push('Projects');
+  if (resume.internships.length > 0 || resume.achievements.length > 0) score += 25;
+  else missing.push('Experience/Achievements');
+
+  return { score, missing };
+}
+
+export function analyzeAts(
+  resume: {
+    education: unknown[];
+    skills: string[];
+    projects: unknown[];
+    internships: unknown[];
+    achievements: string[];
+  },
+  rawText: string,
+  role: JobRole | null,
+  jobDescription: string
+): AtsDetailedResult {
+  // Build the full resume text for keyword scanning
+  const projectsText = resume.projects
+    .map((p) => {
+      const proj = p as { title?: string; description?: string; technologies?: string };
+      return `${proj.title ?? ''} ${proj.description ?? ''} ${proj.technologies ?? ''}`;
+    })
+    .join(' ');
+
+  const internshipsText = resume.internships
+    .map((i) => {
+      const intern = i as { company?: string; role?: string; description?: string };
+      return `${intern.company ?? ''} ${intern.role ?? ''} ${intern.description ?? ''}`;
+    })
+    .join(' ');
+
+  const fullResumeText = [
+    rawText,
+    resume.skills.join(' '),
+    projectsText,
+    internshipsText,
+    resume.achievements.join(' '),
+  ].join(' ').toLowerCase();
+
+  // ── Skills Score ──
+  let matchedSkills: string[] = [];
+  let missingSkills: string[] = [];
+
+  if (role) {
+    const skillAnalysis = analyzeSkills(resume.skills, role);
+    matchedSkills = skillAnalysis.matched;
+    missingSkills = skillAnalysis.missing;
+  }
+
+  const totalRequiredSkills = role?.required_skills.length ?? 0;
+  const skillsScore = totalRequiredSkills > 0
+    ? Math.round((matchedSkills.length / totalRequiredSkills) * 100)
+    : 0;
+
+  // ── Keyword Score ──
+  // Combine role required_skills as keywords + keywords extracted from JD
+  const roleKeywords = role?.required_skills ?? [];
+  const jdKeywords = extractKeywordsFromJD(jobDescription);
+  const allKeywords = [...new Set([...roleKeywords, ...jdKeywords])];
+
+  const matchedKeywords: string[] = [];
+  const missingKeywords: string[] = [];
+
+  for (const kw of allKeywords) {
+    const kwLower = kw.toLowerCase();
+    if (fullResumeText.includes(kwLower)) {
+      matchedKeywords.push(kw);
+    } else {
+      missingKeywords.push(kw);
+    }
+  }
+
+  const keywordScore = allKeywords.length > 0
+    ? Math.round((matchedKeywords.length / allKeywords.length) * 100)
+    : 0;
+
+  // ── Section Score ──
+  const sectionResult = checkSections(resume);
+  const sectionScore = sectionResult.score;
+
+  // ── Formatting Score ──
+  const formatResult = checkFormatting(fullResumeText);
+  const formattingScore = formatResult.score;
+
+  // ── Overall ATS Score (weighted) ──
+  const atsScore = Math.round(
+    keywordScore * 0.30 +
+    skillsScore * 0.35 +
+    sectionScore * 0.15 +
+    formattingScore * 0.20
+  );
+
+  // ── Suggestions ──
+  const suggestions: string[] = [];
+
+  if (missingSkills.length > 0) {
+    missingSkills.slice(0, 3).forEach((s) => {
+      suggestions.push(`Add ${s} to your technical skills section.`);
+    });
+  }
+
+  if (missingKeywords.length > 0) {
+    const importantMissing = missingKeywords.filter((k) => !missingSkills.includes(k)).slice(0, 3);
+    importantMissing.forEach((k) => {
+      suggestions.push(`Mention ${k} experience in your projects or experience sections.`);
+    });
+  }
+
+  formatResult.issues.forEach((issue) => {
+    suggestions.push(issue);
+  });
+
+  if (sectionResult.missing.length > 0) {
+    suggestions.push(`Add missing resume sections: ${sectionResult.missing.join(', ')}.`);
+  }
+
+  if (resume.achievements.length === 0) {
+    suggestions.push('Add measurable achievements with numbers (e.g., "Improved performance by 40%").');
+  }
+
+  if (atsScore >= 80) {
+    suggestions.push('Excellent! Your resume is well-optimized for this role.');
+  } else if (atsScore >= 60) {
+    suggestions.push('Good foundation — address the items above to push your score higher.');
+  } else if (atsScore > 0) {
+    suggestions.push('Your resume needs significant improvements for this role. Focus on the key items above.');
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push('Your resume is well-aligned with this role. Keep refining for even better results.');
+  }
+
+  return {
+    atsScore: Math.min(100, atsScore),
+    keywordScore,
+    skillsScore,
+    formattingScore,
+    sectionScore,
+    matchedKeywords,
+    missingKeywords,
+    matchedSkills,
+    missingSkills,
+    suggestions: suggestions.slice(0, 8),
+  };
+}

@@ -96,6 +96,24 @@ export type Roadmap = {
   updated_at: string;
 };
 
+export type AtsAnalysis = {
+  id: string;
+  user_id: string;
+  role_id: string | null;
+  job_description: string;
+  ats_score: number;
+  keyword_score: number;
+  skills_score: number;
+  formatting_score: number;
+  section_score: number;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  matched_skills: string[];
+  missing_skills: string[];
+  suggestions: string[];
+  created_at: string;
+};
+
 export type ScoreEntry = {
   id: string;
   user_id: string;
